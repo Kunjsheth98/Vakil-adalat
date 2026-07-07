@@ -17,17 +17,26 @@
   let selectedEvidence = undefined; // undefined = nothing picked yet, null = "no evidence" chosen
   let reactTimerInterval = null;
   let lastVerdictData = null;
+  let rulingAutoTimer = null;
+  let rulingAdvanced = false;
+  let verdictLoserSide = null;
+  const APPEAL_COST = 15;
+  const APPEAL_REFUND = 30;
+  const APPEAL_DEFEND_BONUS = 10;
 
   // ---------- Navigation / actions ----------
   document.body.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action]");
     if (!btn) return;
-    handleAction(btn.dataset.action);
+    handleAction(btn.dataset.action, btn);
   });
 
-  function handleAction(action) {
+  function handleAction(action, btn) {
     switch (action) {
-      case "go-home": show("home"); break;
+      case "go-home":
+        clearTimeout(rulingAutoTimer);
+        show("home");
+        break;
       case "go-mode-select": show("mode"); break;
       case "go-profiles": renderProfiles(); show("profiles"); break;
       case "go-howtoplay": show("howtoplay"); break;
@@ -60,6 +69,9 @@
       case "judge-rule-overrule": judgeRule(false); break;
       case "download-receipt": downloadReceipt(); break;
       case "play-again": playAgain(); break;
+      case "cross-examine": useCrossExamine(); break;
+      case "start-appeal": startAppeal(); break;
+      case "view-stats": renderStatsScreen(btn.dataset.name); show("stats"); break;
     }
   }
 
@@ -183,7 +195,7 @@
     G.onlineMySeat = "A";
     MP.sendAction("match-start", {
       caseId: c.id, handsA: G.hands.A, handsB: G.hands.B,
-      hostName: MP.myName, guestName: opponentName,
+      hostName: MP.myName, guestName: opponentName, judgeId: G.judge.id,
     });
     renderCaseReveal();
     show("case-reveal");
@@ -196,6 +208,8 @@
       case: c,
       hands: { A: event.handsA.slice(), B: event.handsB.slice() },
       scores: { A: 0, B: 0 }, round: 1, seq: 0, onlineMySeat: "B",
+      judge: JUDGES.find((j) => j.id === event.judgeId) || JUDGES.find((j) => j.id === "fair"),
+      tokens: { A: 1, B: 1 },
     };
     renderCaseReveal();
     show("case-reveal");
@@ -214,13 +228,15 @@
   function isMyTurnToReact() { return currentReactorSide() === G.onlineMySeat; }
 
   // ---------- Match setup ----------
-  function beginMatchWithCase(nameA, nameB, caseObj) {
+  function beginMatchWithCase(nameA, nameB, caseObj, judge) {
     const hands = dealHands(caseObj);
     G = {
       seats: { A: { name: nameA }, B: { name: nameB } },
       case: caseObj,
       hands: { A: hands.A.slice(), B: hands.B.slice() },
       scores: { A: 0, B: 0 }, round: 1, seq: 0,
+      judge: judge || pickJudge(),
+      tokens: { A: 1, B: 1 },
     };
   }
 
@@ -244,6 +260,8 @@
     document.getElementById("reveal-story").textContent = G.case.story;
     document.getElementById("reveal-plaintiff").textContent = `${G.seats.A.name} — representing ${G.case.plaintiff}`;
     document.getElementById("reveal-defendant").textContent = `${G.seats.B.name} — representing ${G.case.defendant}`;
+    document.getElementById("reveal-judge-name").textContent = `${G.judge.name} — ${G.judge.title}`;
+    document.getElementById("reveal-judge-desc").textContent = G.judge.desc;
   }
 
   function beginArguments() {
@@ -332,15 +350,17 @@
   function renderArgGrid() {
     const grid = document.getElementById("arg-grid");
     grid.innerHTML = "";
+    document.getElementById("arg-description").textContent = "Tap a style to see what it does.";
     ARGUMENT_TYPES.forEach((a) => {
       const el = document.createElement("button");
       el.type = "button";
       el.className = "arg-card";
-      el.innerHTML = `<span class="arg-card-name">${a.name}</span><span class="arg-card-desc">${a.desc}</span>`;
+      el.textContent = a.name;
       el.addEventListener("click", () => {
         selectedArg = a.id;
         [...grid.children].forEach((c) => c.classList.remove("selected"));
         el.classList.add("selected");
+        document.getElementById("arg-description").textContent = a.desc;
         updatePresentButton();
       });
       grid.appendChild(el);
@@ -420,8 +440,25 @@
     show("court");
     hideAllCourtPanels();
     document.getElementById("panel-react").classList.remove("hidden");
-    document.getElementById("react-title").textContent = `${G.seats[currentReactorSide()].name}, your call`;
+    const side = currentReactorSide();
+    document.getElementById("react-title").textContent = `${G.seats[side].name}, your call`;
+    const tokensLeft = G.tokens ? G.tokens[side] : 0;
+    const xBtn = document.getElementById("btn-cross-examine");
+    const xHint = document.getElementById("cross-examine-hint");
+    xHint.textContent = "";
+    xHint.classList.add("hidden");
+    xBtn.classList.toggle("hidden", !(tokensLeft > 0));
+    xBtn.textContent = `Cross-Examine (${tokensLeft} left)`;
     startReactTimer();
+  }
+
+  function useCrossExamine() {
+    const side = currentReactorSide();
+    if (!G.tokens || G.tokens[side] <= 0) return;
+    G.tokens[side] -= 1;
+    document.getElementById("cross-examine-hint").textContent = judgeHint(G.current.argType, G.current.evidenceCard);
+    document.getElementById("cross-examine-hint").classList.remove("hidden");
+    document.getElementById("btn-cross-examine").classList.add("hidden");
   }
 
   function startReactTimer() {
@@ -499,7 +536,7 @@
   function processResolution(objected) {
     const statement = G.current;
     if (objected && currentMode === "party") { goToHumanJudge(statement); return; }
-    const result = resolveStatement({ argType: statement.argType, evidenceCard: statement.evidenceCard, objected });
+    const result = resolveStatement({ argType: statement.argType, evidenceCard: statement.evidenceCard, objected, judge: G.judge });
     if (currentMode === "online" && MP.isHost()) {
       MP.sendAction("ruling", { result, objected });
     }
@@ -510,6 +547,14 @@
     const reactorSide = statement.presenterSide === "A" ? "B" : "A";
     G.scores[statement.presenterSide] += result.presenterDelta;
     G.scores[reactorSide] += result.objectorDelta;
+    G.lastResult = result;
+    const presenterName = G.seats[statement.presenterSide].name;
+    const isFake = !!(statement.evidenceCard && EVIDENCE_TYPES[statement.evidenceCard.type].forged);
+    recordStatementStat(presenterName, {
+      argType: statement.argType,
+      evidenceType: statement.evidenceCard ? statement.evidenceCard.type : null,
+      isFake, outcome: result.outcome,
+    });
     renderRulingPanel(statement, result, objected);
     updateMeters();
   }
@@ -533,10 +578,22 @@
     document.getElementById("ruling-detail").textContent = statement.evidenceCard
       ? `The evidence was: ${EVIDENCE_TYPES[statement.evidenceCard.type].label}.`
       : "";
+
+    rulingAdvanced = false;
+    clearTimeout(rulingAutoTimer);
+    rulingAutoTimer = setTimeout(advanceFromRuling, 3200);
   }
 
   function continueAfterRuling() {
+    advanceFromRuling();
+  }
+
+  function advanceFromRuling() {
+    if (rulingAdvanced) return;
+    rulingAdvanced = true;
+    clearTimeout(rulingAutoTimer);
     document.getElementById("panel-ruling").classList.add("hidden");
+    if (G.appealActive) { finishAppeal(); return; }
     advanceTurn();
   }
 
@@ -567,6 +624,7 @@
     const { verdict, scores, seats, caseTitle } = verdictData;
     const winnerSide = verdict.winner;
     const loserSide = winnerSide === "A" ? "B" : "A";
+    verdictLoserSide = loserSide;
 
     document.getElementById("verdict-winner").textContent = `${seats[winnerSide].name} wins the case`;
     document.getElementById("verdict-line").textContent = verdict.line;
@@ -575,7 +633,7 @@
     document.getElementById("verdict-name-b").textContent = seats.B.name;
     document.getElementById("verdict-score-b").textContent = Math.round(scores.B);
 
-    const { winner: wProfile } = recordResult({
+    const { winner: wProfile, loser: lProfile } = recordResult({
       winnerName: seats[winnerSide].name, loserName: seats[loserSide].name,
       caseTitle, winnerPoints: verdict.winnerPoints, loserPoints: verdict.loserPoints,
     });
@@ -584,6 +642,17 @@
       `${seats[winnerSide].name} earns ${verdict.winnerPoints} rank points — now a ${rank.name} (${wProfile.points} pts). ${seats[loserSide].name} earns ${verdict.loserPoints}.`;
 
     lastVerdictData = { ...verdictData, winnerName: seats[winnerSide].name, loserName: seats[loserSide].name };
+
+    document.getElementById("appeal-result").classList.add("hidden");
+    const appealEligible = currentMode !== "online"
+      && !(currentMode === "daily" && loserSide === "B")
+      && lProfile.points >= APPEAL_COST;
+    document.getElementById("appeal-section").classList.toggle("hidden", !appealEligible);
+    document.getElementById("btn-appeal").textContent = `Appeal this verdict (${APPEAL_COST} pts)`;
+    document.getElementById("appeal-cost-note").textContent =
+      (!appealEligible && currentMode !== "online" && !(currentMode === "daily" && loserSide === "B") && lProfile.points < APPEAL_COST)
+        ? `${seats[loserSide].name} needs ${APPEAL_COST} rank points to appeal.`
+        : "";
 
     if (currentMode === "party") rotatePartyQueue(winnerSide);
     show("verdict");
@@ -595,6 +664,62 @@
     const loserName = G.seats[loserSide].name;
     const rest = partyRoster.filter((n) => n !== winnerName && n !== loserName);
     partyRoster = [winnerName, ...rest, loserName];
+  }
+
+  function startAppeal() {
+    const loserName = lastVerdictData.loserName;
+    document.getElementById("appeal-section").classList.add("hidden");
+    adjustPoints(loserName, -APPEAL_COST);
+
+    const appellantSide = G.seats.A.name === loserName ? "A" : "B";
+    G.appealActive = true;
+    G.appealAppellantSide = appellantSide;
+
+    const hist = loadCaseHistory();
+    const c = pickCase(hist);
+    pushCaseHistory(c.id);
+    const hands = dealHands(c);
+    G.case = c;
+    G.judge = pickJudge();
+    G.hands = { A: [hands.A[0]], B: [hands.B[0]] };
+    G.current = null;
+    G.seq = appellantSide === "A" ? 0 : 1;
+
+    show("court");
+    hideAllCourtPanels();
+    document.getElementById("stage-statement").classList.add("hidden");
+    document.getElementById("round-indicator").textContent = "Appeal";
+    document.getElementById("stage-case-title").textContent = `Appeal — presided by ${G.judge.name}`;
+    showAppealPresentStep();
+  }
+
+  function showAppealPresentStep() {
+    const side = currentPresenterSide();
+    if (currentMode === "daily" && side === "A") { showPresentPanel(side); return; }
+    showPassDevice(G.seats[side].name, "One last argument. Choose carefully.", () => showPresentPanel(side));
+  }
+
+  function finishAppeal() {
+    const appellantSide = G.appealAppellantSide;
+    const appellantName = G.seats[appellantSide].name;
+    const defenderName = G.seats[appellantSide === "A" ? "B" : "A"].name;
+    const favorable = ["accepted", "bluffLanded", "overruled"].includes(G.lastResult.outcome);
+    let message;
+    if (favorable) {
+      const p = adjustPoints(appellantName, APPEAL_REFUND);
+      recordAppealResult(appellantName, true);
+      recordAppealResult(defenderName, false);
+      message = `${appellantName} wins the appeal — ${APPEAL_REFUND} rank points refunded (net +${APPEAL_REFUND - APPEAL_COST}). Now ${p.points} pts.`;
+    } else {
+      adjustPoints(defenderName, APPEAL_DEFEND_BONUS);
+      recordAppealResult(appellantName, false);
+      recordAppealResult(defenderName, true);
+      message = `${defenderName} successfully defends the verdict, earning ${APPEAL_DEFEND_BONUS} bonus points. ${appellantName} loses the ${APPEAL_COST}-point appeal fee.`;
+    }
+    G.appealActive = false;
+    document.getElementById("appeal-result").textContent = message;
+    document.getElementById("appeal-result").classList.remove("hidden");
+    show("verdict");
   }
 
   function playAgain() {
@@ -697,12 +822,53 @@
     }
     list.innerHTML = rows.map((p) => {
       const rank = rankForPoints(p.points);
-      return `<div class="profile-row">
+      return `<button type="button" class="profile-row" data-action="view-stats" data-name="${escapeHtml(p.name)}">
         <div class="profile-name">${escapeHtml(p.name)}</div>
         <div class="profile-rank">${rank.name} · ${p.points} pts</div>
         <div class="profile-stats">${p.wins}W – ${p.losses}L · Best streak ${p.bestStreak}</div>
-      </div>`;
+      </button>`;
     }).join("");
+  }
+
+  function renderStatsScreen(name) {
+    const profiles = loadProfiles();
+    const p = profiles[name];
+    if (!p) return;
+    const s = p.stats || {};
+
+    document.getElementById("stats-name").textContent = name;
+    document.getElementById("stats-rank").textContent = `${rankForPoints(p.points).name} · ${p.points} pts`;
+    document.getElementById("stats-record").textContent = `${p.wins}W – ${p.losses}L · Best streak ${p.bestStreak}`;
+
+    const argRows = ARGUMENT_TYPES.map((a) => {
+      const used = (s.argTypeCounts && s.argTypeCounts[a.id]) || 0;
+      const won = (s.argTypeWins && s.argTypeWins[a.id]) || 0;
+      const rate = used ? Math.round((won / used) * 100) : 0;
+      return { name: a.name, used, rate };
+    }).filter((r) => r.used > 0).sort((a, b) => b.used - a.used);
+
+    const container = document.getElementById("stats-argtypes");
+    container.innerHTML = argRows.length ? argRows.map((r) => `
+      <div class="stat-bar-row">
+        <span class="stat-bar-label">${escapeHtml(r.name)} <span class="stat-bar-count">(${r.used}×)</span></span>
+        <div class="stat-bar-track"><div class="stat-bar-fill" style="width:${r.rate}%"></div></div>
+        <span class="stat-bar-pct">${r.rate}%</span>
+      </div>`).join("") : '<p class="hint">Not enough cases played yet.</p>';
+
+    const bluffRate = s.bluffAttempts ? Math.round((s.bluffSuccess / s.bluffAttempts) * 100) : null;
+    document.getElementById("stats-bluff").textContent = bluffRate === null
+      ? "Hasn't tried a bluff yet."
+      : `Bluff success rate: ${bluffRate}% (${s.bluffSuccess} of ${s.bluffAttempts})`;
+
+    let mostCaught = null, mostCaughtCount = 0;
+    Object.entries(s.evidenceCaughtCounts || {}).forEach(([type, count]) => {
+      if (count > mostCaughtCount) { mostCaught = type; mostCaughtCount = count; }
+    });
+    document.getElementById("stats-caught").textContent = mostCaught
+      ? `Gets caught faking most often with: ${EVIDENCE_TYPES[mostCaught].label} (${mostCaughtCount}×)`
+      : "Never been caught faking evidence.";
+
+    document.getElementById("stats-appeals").textContent = `Appeals won: ${s.appealsWon || 0} · Appeals lost: ${s.appealsLost || 0}`;
   }
 
   function escapeHtml(s) {

@@ -32,10 +32,65 @@ function getOrCreateProfile(name) {
       name, points: 0, wins: 0, losses: 0,
       streak: 0, bestStreak: 0,
       history: [], nemesis: {},
+      stats: {
+        argTypeCounts: {}, argTypeWins: {},
+        bluffAttempts: 0, bluffSuccess: 0,
+        caughtFakeCount: 0, evidenceCaughtCounts: {},
+        appealsWon: 0, appealsLost: 0,
+      },
     };
     saveProfiles(profiles);
   }
+  if (!profiles[name].stats) {
+    profiles[name].stats = {
+      argTypeCounts: {}, argTypeWins: {},
+      bluffAttempts: 0, bluffSuccess: 0,
+      caughtFakeCount: 0, evidenceCaughtCounts: {},
+      appealsWon: 0, appealsLost: 0,
+    };
+  }
   return profiles[name];
+}
+
+// Called once per statement, for the presenting player, to build up their play style stats.
+function recordStatementStat(name, { argType, evidenceType, isFake, outcome }) {
+  const profiles = loadProfiles();
+  const profile = profiles[name] || getOrCreateProfile(name);
+  const s = profile.stats;
+
+  s.argTypeCounts[argType] = (s.argTypeCounts[argType] || 0) + 1;
+  const favorable = outcome === "accepted" || outcome === "bluffLanded" || (outcome === "overruled");
+  if (favorable) s.argTypeWins[argType] = (s.argTypeWins[argType] || 0) + 1;
+
+  if (isFake) {
+    s.bluffAttempts += 1;
+    if (outcome === "bluffLanded" || outcome === "overruled") s.bluffSuccess += 1;
+    if (outcome === "caughtFake") {
+      s.caughtFakeCount += 1;
+      s.evidenceCaughtCounts[evidenceType] = (s.evidenceCaughtCounts[evidenceType] || 0) + 1;
+    }
+  }
+  profiles[name] = profile;
+  saveProfiles(profiles);
+}
+
+function adjustPoints(name, delta) {
+  const profiles = loadProfiles();
+  const profile = profiles[name] || getOrCreateProfile(name);
+  profile.points = Math.max(0, profile.points + delta);
+  profiles[name] = profile;
+  saveProfiles(profiles);
+  return profile;
+}
+
+function recordAppealResult(name, won) {
+  const profiles = loadProfiles();
+  const profile = profiles[name] || getOrCreateProfile(name);
+  if (won) profile.stats.appealsWon += 1;
+  else profile.stats.appealsLost += 1;
+  profiles[name] = profile;
+  saveProfiles(profiles);
+  return profile;
 }
 
 function recordResult({ winnerName, loserName, caseTitle, winnerPoints, loserPoints }) {

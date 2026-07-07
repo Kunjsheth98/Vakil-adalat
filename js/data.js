@@ -441,6 +441,47 @@ const CASES = [
   },
 ];
 
-if (typeof module !== "undefined") {
-  module.exports = { EVIDENCE_TYPES, ARGUMENT_TYPES, JUDGE_LINES, CASES };
+// ---------- JUDGES ----------
+// Each case is presided over by a randomly assigned judge with a real personality.
+// This is knowable at case reveal, so players can plan around it — not hidden info.
+const JUDGES = [
+  {
+    id: "strict", name: "Justice Rao", title: "The Strict One",
+    desc: "Goes by the book. Weak objections rarely survive in this court.",
+    sustainBias: 0.08, argTypeFavor: { loophole: -0.10 }, evidenceDistrust: { said: 0.08 },
+    fakeCatchRate: 0.95,
+  },
+  {
+    id: "sentimental", name: "Justice Iyer", title: "The Sentimental One",
+    desc: "Swayed by a good story. Emotional arguments hit harder here.",
+    sustainBias: -0.03, argTypeFavor: { emotion: -0.15 }, evidenceDistrust: {},
+    fakeCatchRate: 0.82,
+  },
+  {
+    id: "skeptical", name: "Justice Bhatt", title: "The Skeptic",
+    desc: "Trusts nothing at first glance. Eyewitness claims get extra scrutiny.",
+    sustainBias: 0.05, argTypeFavor: {}, evidenceDistrust: { eye: 0.12 },
+    fakeCatchRate: 0.90,
+  },
+  {
+    id: "quick", name: "Justice Fernandes", title: "The Quick One",
+    desc: "Wants this case done today. Weak objections get overruled fast.",
+    sustainBias: -0.08, argTypeFavor: {}, evidenceDistrust: {},
+    fakeCatchRate: 0.75,
+  },
+  {
+    id: "fair", name: "Justice Menon", title: "By The Book",
+    desc: "No quirks, no favorites. Straightforward, balanced rulings.",
+    sustainBias: 0, argTypeFavor: {}, evidenceDistrust: {},
+    fakeCatchRate: 0.85,
+  },
+];
+
+function pickJudge() {
+  return JUDGES[Math.floor(Math.random() * JUDGES.length)];
 }
+
+if (typeof module !== "undefined") {
+  module.exports = { EVIDENCE_TYPES, ARGUMENT_TYPES, JUDGE_LINES, CASES, JUDGES, pickJudge };
+}
+

@@ -319,6 +319,29 @@ body {
 }
 .case-parties .vs { color: var(--parchment-dim); margin: 0 8px; }
 
+.judge-badge {
+  background: rgba(201,162,39,0.08);
+  border: 1px solid var(--brass);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+.judge-badge-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--brass-bright);
+}
+.judge-badge-name {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1.05rem;
+  margin: 4px 0 2px;
+}
+.judge-badge-desc { font-size: 0.82rem; color: var(--parchment-dim); margin: 0; }
+
 /* ---------- Pass device ---------- */
 .pass-card {
   margin-top: 60px;
@@ -440,14 +463,23 @@ body {
   background: var(--ink);
   border: 1px solid var(--ink-line);
   border-radius: 10px;
-  padding: 10px;
-  text-align: left;
+  padding: 12px 10px;
+  text-align: center;
   cursor: pointer;
   color: var(--parchment);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 0.86rem;
 }
-.arg-card.selected { border-color: var(--brass); background: rgba(201,162,39,0.12); }
-.arg-card-name { font-weight: 600; font-size: 0.86rem; display: block; }
-.arg-card-desc { font-size: 0.74rem; color: var(--parchment-dim); }
+.arg-card.selected { border-color: var(--brass); background: rgba(201,162,39,0.14); color: var(--brass-bright); }
+.arg-description {
+  font-size: 0.82rem;
+  color: var(--parchment-dim);
+  text-align: left;
+  margin: 0;
+  min-height: 1.2em;
+  font-style: italic;
+}
 
 .hand-row {
   display: flex;
@@ -484,6 +516,24 @@ body {
 }
 .react-buttons { display: flex; gap: 10px; }
 .react-buttons .btn { flex: 1; }
+.cross-examine-hint {
+  font-size: 0.84rem;
+  color: var(--brass-bright);
+  font-style: italic;
+  margin: -4px 0 2px;
+}
+
+#appeal-section { margin-bottom: 4px; }
+.appeal-result {
+  background: var(--wood-light);
+  border: 1px solid var(--brass);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  color: var(--parchment);
+  margin: 4px 0 18px;
+  max-width: 380px;
+}
 
 .stamp {
   font-family: var(--font-display);
@@ -541,10 +591,53 @@ body {
   border-radius: 12px;
   padding: 14px 16px;
   text-align: left;
+  cursor: pointer;
+  width: 100%;
+  color: var(--parchment);
+  font-family: var(--font-body);
+  display: block;
 }
+.profile-row:hover { border-color: var(--brass); }
 .profile-name { font-family: var(--font-display); font-weight: 600; font-size: 1.05rem; }
 .profile-rank { font-family: var(--font-mono); font-size: 0.72rem; color: var(--brass-bright); text-transform: uppercase; letter-spacing: 0.06em; }
 .profile-stats { font-size: 0.8rem; color: var(--parchment-dim); margin-top: 4px; }
+
+.stats-rank {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--brass-bright);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: -12px 0 4px;
+}
+.stats-block {
+  width: 100%;
+  background: var(--wood-light);
+  border: 1px solid var(--ink-line);
+  border-radius: 14px;
+  padding: 16px;
+  text-align: left;
+  margin-bottom: 14px;
+}
+.stats-block-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 1rem;
+  margin: 0 0 10px;
+}
+.stat-bar-row {
+  display: grid;
+  grid-template-columns: 1fr 2fr auto;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 0.8rem;
+}
+.stat-bar-label { color: var(--parchment-dim); }
+.stat-bar-count { font-family: var(--font-mono); font-size: 0.68rem; }
+.stat-bar-track { height: 7px; background: var(--ink); border-radius: 6px; overflow: hidden; }
+.stat-bar-fill { height: 100%; background: var(--brass); }
+.stat-bar-pct { font-family: var(--font-mono); color: var(--brass-bright); font-size: 0.76rem; }
 
 /* ---------- Party name fields ---------- */
 #party-name-fields { margin-bottom: 6px; }

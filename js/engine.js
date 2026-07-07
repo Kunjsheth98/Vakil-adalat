@@ -48,13 +48,14 @@ function pickLine(bucket) {
 }
 
 // Resolve one statement: presenter plays an argument type + optional evidence card.
-// If objected is true, the judge rules. Returns a full result object for the UI.
-function resolveStatement({ argType, evidenceCard, objected }) {
+// If objected is true, the judge rules. `judge` shapes how that ruling leans.
+function resolveStatement({ argType, evidenceCard, objected, judge }) {
+  const j = judge || JUDGES.find((jj) => jj.id === "fair");
   const argument = ARGUMENT_TYPES.find(a => a.id === argType);
   const hasSynergy = evidenceCard && argument.synergy.includes(evidenceCard.type);
   const baseStrength = evidenceCard ? EVIDENCE_TYPES[evidenceCard.type].baseStrength : 1;
   const strength = Math.min(6, baseStrength + (hasSynergy ? 1.5 : 0));
-  const isFake = !!(evidenceCard && evidenceCard.forged !== undefined ? evidenceCard.forged : (evidenceCard && EVIDENCE_TYPES[evidenceCard.type].forged));
+  const isFake = !!(evidenceCard && EVIDENCE_TYPES[evidenceCard.type].forged);
 
   if (!objected) {
     if (isFake) {
@@ -72,16 +73,29 @@ function resolveStatement({ argType, evidenceCard, objected }) {
     };
   }
 
-  // Objection raised — judge rules.
+  // Objection raised — judge rules, and this judge's personality shapes the call.
   if (isFake) {
+    const caught = Math.random() < j.fakeCatchRate;
+    if (caught) {
+      return {
+        objected: true, outcome: "caughtFake",
+        presenterDelta: -14, objectorDelta: 10,
+        line: pickLine("caughtFake"), hasSynergy, strength,
+      };
+    }
+    // The forgery slipped past this particular judge — bluff survives a direct challenge.
     return {
-      objected: true, outcome: "caughtFake",
-      presenterDelta: -14, objectorDelta: 10,
-      line: pickLine("caughtFake"), hasSynergy, strength,
+      objected: true, outcome: "overruled",
+      presenterDelta: 14, objectorDelta: -6,
+      line: pickLine("overruled"), hasSynergy, strength,
     };
   }
 
-  const sustainProb = Math.max(0.12, Math.min(0.85, 1 - (strength - 1) / 6 - (hasSynergy ? 0.15 : 0)));
+  const argBias = j.argTypeFavor[argType] || 0;
+  const evidenceBias = evidenceCard ? (j.evidenceDistrust[evidenceCard.type] || 0) : 0;
+  const sustainProb = Math.max(0.08, Math.min(0.9,
+    1 - (strength - 1) / 6 - (hasSynergy ? 0.15 : 0) + j.sustainBias + argBias + evidenceBias
+  ));
   const sustained = Math.random() < sustainProb;
 
   if (sustained) {

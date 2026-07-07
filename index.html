@@ -127,6 +127,11 @@
         <span id="reveal-plaintiff"></span> <span class="vs">vs.</span> <span id="reveal-defendant"></span>
       </div>
     </div>
+    <div class="judge-badge">
+      <span class="judge-badge-label">Presiding</span>
+      <p class="judge-badge-name" id="reveal-judge-name"></p>
+      <p class="judge-badge-desc" id="reveal-judge-desc"></p>
+    </div>
     <button class="btn btn-primary" data-action="begin-arguments">Begin arguments</button>
   </section>
 
@@ -170,6 +175,7 @@
       <p class="panel-title" id="present-title"></p>
       <p class="panel-sub">Choose your argument style</p>
       <div class="arg-grid" id="arg-grid"></div>
+      <p class="arg-description" id="arg-description">Tap a style to see what it does.</p>
       <p class="panel-sub">Back it with evidence, or argue without any</p>
       <div class="hand-row" id="hand-row"></div>
       <button class="btn btn-primary" id="btn-present" disabled data-action="submit-statement">Present to the court</button>
@@ -179,6 +185,8 @@
     <div class="panel hidden" id="panel-react">
       <p class="panel-title" id="react-title"></p>
       <div class="timer-bar-track"><div class="timer-bar-fill" id="timer-bar-fill"></div></div>
+      <button class="btn btn-secondary hidden" id="btn-cross-examine" data-action="cross-examine">Cross-Examine</button>
+      <p class="cross-examine-hint hidden" id="cross-examine-hint"></p>
       <div class="react-buttons">
         <button class="btn btn-accept" data-action="react-accept">Let it stand</button>
         <button class="btn btn-object" data-action="react-object">Objection!</button>
@@ -220,6 +228,11 @@
       <div><span id="verdict-name-b"></span><strong id="verdict-score-b"></strong></div>
     </div>
     <p class="verdict-points" id="verdict-points"></p>
+    <div class="stack narrow" id="appeal-section">
+      <button class="btn btn-secondary" data-action="start-appeal" id="btn-appeal">Appeal this verdict (15 pts)</button>
+      <p class="hint" id="appeal-cost-note"></p>
+    </div>
+    <p class="appeal-result hidden" id="appeal-result"></p>
     <div class="stack narrow">
       <button class="btn btn-primary" data-action="download-receipt">Download case receipt</button>
       <button class="btn btn-secondary" data-action="play-again">Play another case</button>
@@ -233,6 +246,27 @@
     <h2 class="section-title">Advocates &amp; ranks</h2>
     <div id="profiles-list" class="profiles-list"></div>
     <button class="btn btn-ghost" data-action="go-home">Back</button>
+  </section>
+
+  <!-- STATS -->
+  <section class="screen" id="screen-stats" data-screen="stats">
+    <h2 class="section-title" id="stats-name"></h2>
+    <p class="stats-rank" id="stats-rank"></p>
+    <p class="hint" id="stats-record"></p>
+    <div class="stats-block">
+      <p class="stats-block-title">Argument style — win rate</p>
+      <div id="stats-argtypes"></div>
+    </div>
+    <div class="stats-block">
+      <p class="stats-block-title">Bluffing</p>
+      <p class="hint" id="stats-bluff"></p>
+      <p class="hint" id="stats-caught"></p>
+    </div>
+    <div class="stats-block">
+      <p class="stats-block-title">Appeals</p>
+      <p class="hint" id="stats-appeals"></p>
+    </div>
+    <button class="btn btn-ghost" data-action="go-profiles">Back</button>
   </section>
 
 </div>

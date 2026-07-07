@@ -31,12 +31,13 @@ function getOrCreateProfile(name) {
     profiles[name] = {
       name, points: 0, wins: 0, losses: 0,
       streak: 0, bestStreak: 0,
-      history: [], nemesis: {},
+      history: [], nemesis: {}, badges: {},
       stats: {
         argTypeCounts: {}, argTypeWins: {},
         bluffAttempts: 0, bluffSuccess: 0,
         caughtFakeCount: 0, evidenceCaughtCounts: {},
         appealsWon: 0, appealsLost: 0,
+        crossExaminesUsed: 0, giantSlayerCount: 0,
       },
     };
     saveProfiles(profiles);
@@ -47,9 +48,38 @@ function getOrCreateProfile(name) {
       bluffAttempts: 0, bluffSuccess: 0,
       caughtFakeCount: 0, evidenceCaughtCounts: {},
       appealsWon: 0, appealsLost: 0,
+      crossExaminesUsed: 0, giantSlayerCount: 0,
     };
   }
+  if (!profiles[name].badges) profiles[name].badges = {};
   return profiles[name];
+}
+
+function bumpStat(name, key, amount = 1) {
+  const profiles = loadProfiles();
+  const p = profiles[name] || getOrCreateProfile(name);
+  p.stats[key] = (p.stats[key] || 0) + amount;
+  profiles[name] = p;
+  saveProfiles(profiles);
+  return p;
+}
+
+// Call after any profile-affecting event (match win/loss, appeal, etc). Returns
+// the list of newly-unlocked badges (empty array if nothing new).
+function checkAndUnlockBadges(name) {
+  const profiles = loadProfiles();
+  const p = profiles[name] || getOrCreateProfile(name);
+  if (!p.badges) p.badges = {};
+  const newly = [];
+  BADGES.forEach((b) => {
+    if (!p.badges[b.id] && b.check(p)) {
+      p.badges[b.id] = new Date().toISOString();
+      newly.push(b);
+    }
+  });
+  profiles[name] = p;
+  saveProfiles(profiles);
+  return newly;
 }
 
 // Called once per statement, for the presenting player, to build up their play style stats.

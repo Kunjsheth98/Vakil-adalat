@@ -20,6 +20,7 @@
   let rulingAutoTimer = null;
   let rulingAdvanced = false;
   let verdictLoserSide = null;
+  let lastUnlockedBadge = null;
   const APPEAL_COST = 15;
   const APPEAL_REFUND = 30;
   const APPEAL_DEFEND_BONUS = 10;
@@ -43,6 +44,9 @@
       case "start-passplay":
         document.getElementById("field-b-group").classList.remove("hidden");
         document.querySelector("#screen-names-2 .section-title").textContent = "Who's arguing?";
+        document.getElementById("names2-error").classList.add("hidden");
+        document.getElementById("name-a").value = "";
+        document.getElementById("name-b").value = "";
         dailyPending = false;
         show("names-2");
         break;
@@ -52,13 +56,15 @@
         dailyPending = true;
         document.getElementById("field-b-group").classList.add("hidden");
         document.querySelector("#screen-names-2 .section-title").textContent = "Play today's case";
+        document.getElementById("names2-error").classList.add("hidden");
+        document.getElementById("name-a").value = "";
         show("names-2");
         break;
       case "confirm-names-2": confirmNames2(); break;
       case "party-add-name": addPartyNameField(); break;
       case "confirm-names-party": confirmNamesParty(); break;
-      case "online-create": onlineCreate(); break;
-      case "online-join": onlineJoin(); break;
+      case "online-create": onlineCreate(btn); break;
+      case "online-join": onlineJoin(btn); break;
       case "begin-arguments": beginArguments(); break;
       case "pass-continue": passContinue(); break;
       case "submit-statement": submitStatement(); break;
@@ -68,6 +74,7 @@
       case "judge-rule-sustain": judgeRule(true); break;
       case "judge-rule-overrule": judgeRule(false); break;
       case "download-receipt": downloadReceipt(); break;
+      case "download-badge": downloadBadgeCard(); break;
       case "play-again": playAgain(); break;
       case "cross-examine": useCrossExamine(); break;
       case "start-appeal": startAppeal(); break;
@@ -77,8 +84,15 @@
 
   // ---------- Name entry ----------
   function confirmNames2() {
-    const a = document.getElementById("name-a").value.trim() || "Player A";
+    const errEl = document.getElementById("names2-error");
+    const a = document.getElementById("name-a").value.trim();
+    if (!a) {
+      errEl.textContent = "Please add your name.";
+      errEl.classList.remove("hidden");
+      return;
+    }
     if (dailyPending) {
+      errEl.classList.add("hidden");
       currentMode = "daily";
       const c = dailyCase();
       beginMatchWithCase(a, "House", c);
@@ -89,12 +103,19 @@
       show("case-reveal");
       return;
     }
-    const b = document.getElementById("name-b").value.trim() || "Player B";
+    const b = document.getElementById("name-b").value.trim();
+    if (!b) {
+      errEl.textContent = "Please add both names.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    errEl.classList.add("hidden");
     currentMode = "passplay";
     startMatch(a, b);
   }
 
   function resetPartyFields() {
+    document.querySelectorAll(".party-name-row").forEach((row) => row.remove());
     document.querySelectorAll(".party-name-input").forEach((el) => (el.value = ""));
     document.getElementById("party-warning").classList.add("hidden");
   }
@@ -103,11 +124,21 @@
     const container = document.getElementById("party-name-fields");
     const count = container.querySelectorAll(".party-name-input").length;
     if (count >= 6) return;
+    const row = document.createElement("div");
+    row.className = "party-name-row";
     const input = document.createElement("input");
     input.className = "text-input party-name-input";
     input.maxLength = 16;
     input.placeholder = `Player ${count + 1}`;
-    container.appendChild(input);
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.className = "party-remove-btn";
+    removeBtn.textContent = "×";
+    removeBtn.title = "Remove this player";
+    removeBtn.addEventListener("click", () => row.remove());
+    row.appendChild(input);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
   }
 
   function confirmNamesParty() {
@@ -127,10 +158,21 @@
     document.getElementById("online-not-configured").classList.toggle("hidden", ONLINE_ENABLED);
     document.getElementById("online-setup").classList.toggle("hidden", !ONLINE_ENABLED);
     document.getElementById("online-waiting").classList.add("hidden");
+    document.getElementById("online-error").classList.add("hidden");
   }
 
-  async function onlineCreate() {
-    const name = document.getElementById("online-name").value.trim() || "Player";
+  async function onlineCreate(btn) {
+    const errEl = document.getElementById("online-error");
+    errEl.classList.add("hidden");
+    const name = document.getElementById("online-name").value.trim();
+    if (!name) {
+      errEl.textContent = "Please add your name.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Connecting…";
     try {
       const code = await MP.hostCreateRoom(name);
       currentMode = "online";
@@ -139,14 +181,32 @@
       document.querySelector("#online-waiting .hint").textContent = "Waiting for the other side to join…";
       document.getElementById("room-code-display").textContent = code;
     } catch (e) {
-      alert("Could not start online play: " + e.message);
+      errEl.textContent = e.message || "Could not start online play. Try again.";
+      errEl.classList.remove("hidden");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   }
 
-  async function onlineJoin() {
-    const name = document.getElementById("online-name").value.trim() || "Player";
+  async function onlineJoin(btn) {
+    const errEl = document.getElementById("online-error");
+    errEl.classList.add("hidden");
+    const name = document.getElementById("online-name").value.trim();
+    if (!name) {
+      errEl.textContent = "Please add your name.";
+      errEl.classList.remove("hidden");
+      return;
+    }
     const code = document.getElementById("online-code").value.trim();
-    if (!code) return;
+    if (!code) {
+      errEl.textContent = "Please add the room code.";
+      errEl.classList.remove("hidden");
+      return;
+    }
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Connecting…";
     try {
       await MP.guestJoinRoom(code, name);
       currentMode = "online";
@@ -155,7 +215,11 @@
       document.getElementById("room-code-display").textContent = code.toUpperCase();
       document.querySelector("#online-waiting .hint").textContent = "Waiting for the host to start the case…";
     } catch (e) {
-      alert("Could not join: " + e.message);
+      errEl.textContent = e.message || "Could not join. Try again.";
+      errEl.classList.remove("hidden");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   }
 
@@ -210,6 +274,7 @@
       scores: { A: 0, B: 0 }, round: 1, seq: 0, onlineMySeat: "B",
       judge: JUDGES.find((j) => j.id === event.judgeId) || JUDGES.find((j) => j.id === "fair"),
       tokens: { A: 1, B: 1 },
+      roundLog: [],
     };
     renderCaseReveal();
     show("case-reveal");
@@ -237,6 +302,7 @@
       scores: { A: 0, B: 0 }, round: 1, seq: 0,
       judge: judge || pickJudge(),
       tokens: { A: 1, B: 1 },
+      roundLog: [],
     };
   }
 
@@ -355,7 +421,13 @@
       const el = document.createElement("button");
       el.type = "button";
       el.className = "arg-card";
-      el.textContent = a.name;
+      const badge = document.createElement("span");
+      badge.className = "arg-card-badge";
+      badge.textContent = a.name.charAt(0);
+      const label = document.createElement("span");
+      label.textContent = a.name;
+      el.appendChild(badge);
+      el.appendChild(label);
       el.addEventListener("click", () => {
         selectedArg = a.id;
         [...grid.children].forEach((c) => c.classList.remove("selected"));
@@ -459,6 +531,7 @@
     document.getElementById("cross-examine-hint").textContent = judgeHint(G.current.argType, G.current.evidenceCard);
     document.getElementById("cross-examine-hint").classList.remove("hidden");
     document.getElementById("btn-cross-examine").classList.add("hidden");
+    bumpStat(G.seats[side].name, "crossExaminesUsed");
   }
 
   function startReactTimer() {
@@ -555,6 +628,16 @@
       evidenceType: statement.evidenceCard ? statement.evidenceCard.type : null,
       isFake, outcome: result.outcome,
     });
+    if (!G.appealActive) {
+      G.roundLog.push({
+        round: G.round,
+        presenterName,
+        argTypeName: ARGUMENT_TYPES.find((a) => a.id === statement.argType).name,
+        evidenceLabel: statement.evidenceCard ? EVIDENCE_TYPES[statement.evidenceCard.type].label : null,
+        objected, outcome: result.outcome, line: result.line,
+        swing: Math.max(Math.abs(result.presenterDelta), Math.abs(result.objectorDelta)),
+      });
+    }
     renderRulingPanel(statement, result, objected);
     updateMeters();
   }
@@ -625,23 +708,35 @@
     const winnerSide = verdict.winner;
     const loserSide = winnerSide === "A" ? "B" : "A";
     verdictLoserSide = loserSide;
+    const winnerName = seats[winnerSide].name;
+    const loserName = seats[loserSide].name;
 
-    document.getElementById("verdict-winner").textContent = `${seats[winnerSide].name} wins the case`;
+    document.getElementById("verdict-winner").textContent = `${winnerName} wins the case`;
     document.getElementById("verdict-line").textContent = verdict.line;
     document.getElementById("verdict-name-a").textContent = seats.A.name;
     document.getElementById("verdict-score-a").textContent = Math.round(scores.A);
     document.getElementById("verdict-name-b").textContent = seats.B.name;
     document.getElementById("verdict-score-b").textContent = Math.round(scores.B);
 
+    // Giant Slayer check — was the winner significantly lower-ranked before this match?
+    const preProfiles = loadProfiles();
+    const winnerPointsBefore = (preProfiles[winnerName] && preProfiles[winnerName].points) || 0;
+    const loserPointsBefore = (preProfiles[loserName] && preProfiles[loserName].points) || 0;
+    if (loserPointsBefore - winnerPointsBefore >= 50) {
+      bumpStat(winnerName, "giantSlayerCount");
+    }
+
     const { winner: wProfile, loser: lProfile } = recordResult({
-      winnerName: seats[winnerSide].name, loserName: seats[loserSide].name,
-      caseTitle, winnerPoints: verdict.winnerPoints, loserPoints: verdict.loserPoints,
+      winnerName, loserName, caseTitle,
+      winnerPoints: verdict.winnerPoints, loserPoints: verdict.loserPoints,
     });
     const rank = rankForPoints(wProfile.points);
     document.getElementById("verdict-points").textContent =
-      `${seats[winnerSide].name} earns ${verdict.winnerPoints} rank points — now a ${rank.name} (${wProfile.points} pts). ${seats[loserSide].name} earns ${verdict.loserPoints}.`;
+      `${winnerName} earns ${verdict.winnerPoints} rank points — now a ${rank.name} (${wProfile.points} pts). ${loserName} earns ${verdict.loserPoints}.`;
 
-    lastVerdictData = { ...verdictData, winnerName: seats[winnerSide].name, loserName: seats[loserSide].name };
+    lastVerdictData = { ...verdictData, winnerName, loserName };
+
+    renderVerdictRecap();
 
     document.getElementById("appeal-result").classList.add("hidden");
     const appealEligible = currentMode !== "online"
@@ -651,11 +746,45 @@
     document.getElementById("btn-appeal").textContent = `Appeal this verdict (${APPEAL_COST} pts)`;
     document.getElementById("appeal-cost-note").textContent =
       (!appealEligible && currentMode !== "online" && !(currentMode === "daily" && loserSide === "B") && lProfile.points < APPEAL_COST)
-        ? `${seats[loserSide].name} needs ${APPEAL_COST} rank points to appeal.`
+        ? `${loserName} needs ${APPEAL_COST} rank points to appeal.`
         : "";
+
+    const newBadgesWinner = checkAndUnlockBadges(winnerName);
+    const newBadgesLoser = currentMode === "daily" && loserSide === "B" ? [] : checkAndUnlockBadges(loserName);
+    renderAchievementBanner(newBadgesWinner.map((b) => ({ ...b, owner: winnerName })).concat(newBadgesLoser.map((b) => ({ ...b, owner: loserName }))));
 
     if (currentMode === "party") rotatePartyQueue(winnerSide);
     show("verdict");
+  }
+
+  function renderVerdictRecap() {
+    const container = document.getElementById("verdict-recap");
+    if (!G.roundLog || !G.roundLog.length) { container.innerHTML = ""; return; }
+    const outcomeText = {
+      accepted: "went unchallenged",
+      bluffLanded: "bluffed — and got away with it",
+      sustained: "was objected to, and the objection was sustained",
+      overruled: "was objected to, but the objection was overruled",
+      caughtFake: "was objected to — and turned out to be faked",
+    };
+    container.innerHTML = G.roundLog.map((entry) => {
+      const evText = entry.evidenceLabel ? ` (backed by ${entry.evidenceLabel})` : " (no evidence)";
+      return `<div class="recap-row">
+        <span class="recap-round">R${entry.round}</span>
+        <span class="recap-text"><strong>${escapeHtml(entry.presenterName)}</strong> used <em>${escapeHtml(entry.argTypeName)}</em>${evText} — it ${outcomeText[entry.outcome] || entry.outcome}.${entry.line ? ` <span class="recap-line">"${escapeHtml(entry.line)}"</span>` : ""}</span>
+      </div>`;
+    }).join("");
+  }
+
+  function renderAchievementBanner(newBadges) {
+    const banner = document.getElementById("achievement-banner");
+    if (!newBadges.length) { banner.classList.add("hidden"); return; }
+    lastUnlockedBadge = newBadges[0];
+    const rest = newBadges.length - 1;
+    document.getElementById("achievement-owner").textContent = newBadges[0].owner;
+    document.getElementById("achievement-name").textContent = newBadges[0].name;
+    document.getElementById("achievement-desc").textContent = newBadges[0].desc + (rest > 0 ? ` (+${rest} more badge${rest > 1 ? "s" : ""} unlocked this match)` : "");
+    banner.classList.remove("hidden");
   }
 
   function rotatePartyQueue(winnerSide) {
@@ -737,60 +866,134 @@
     if (!lastVerdictData) return;
     const canvas = document.getElementById("receipt-canvas");
     const ctx = canvas.getContext("2d");
-    const { winnerName, loserName, caseTitle, verdict } = lastVerdictData;
+    const { winnerName, loserName, caseTitle, verdict, scores } = lastVerdictData;
+    const highlight = (G && G.roundLog && G.roundLog.length)
+      ? G.roundLog.reduce((best, e) => (e.swing > (best ? best.swing : -1) ? e : best), null)
+      : null;
 
     const bg = new Image();
     bg.onload = () => {
       ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
-      drawReceiptText(ctx, canvas, { winnerName, loserName, caseTitle, verdict });
-      triggerReceiptDownload(canvas);
+      drawReceiptText(ctx, canvas, { winnerName, loserName, caseTitle, verdict, scores, highlight });
+      triggerReceiptDownload(canvas, `vakil-adalat-${Date.now()}.png`);
     };
     bg.onerror = () => {
-      // Fall back to a plain background if the art fails to load for any reason.
       ctx.fillStyle = "#2e2016";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = "#c9a227";
       ctx.lineWidth = 6;
       ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
-      drawReceiptText(ctx, canvas, { winnerName, loserName, caseTitle, verdict });
-      triggerReceiptDownload(canvas);
+      drawReceiptText(ctx, canvas, { winnerName, loserName, caseTitle, verdict, scores, highlight });
+      triggerReceiptDownload(canvas, `vakil-adalat-${Date.now()}.png`);
     };
     bg.src = "assets/receipt-border.jpg";
   }
 
-  function drawReceiptText(ctx, canvas, { winnerName, loserName, caseTitle, verdict }) {
+  function drawReceiptText(ctx, canvas, { winnerName, loserName, caseTitle, verdict, scores, highlight }) {
     ctx.textAlign = "center";
     ctx.fillStyle = "#7c2632";
     ctx.font = "600 30px Georgia";
-    ctx.fillText("VAKIL ADALAT", canvas.width / 2, 130);
+    ctx.fillText("VAKIL ADALAT", canvas.width / 2, 120);
     ctx.fillStyle = "#5a4632";
     ctx.font = "italic 20px Georgia";
-    ctx.fillText("Case Receipt", canvas.width / 2, 165);
+    ctx.fillText("Case Receipt", canvas.width / 2, 155);
 
     ctx.fillStyle = "#2e2016";
-    ctx.font = "600 32px Georgia";
-    wrapText(ctx, caseTitle, canvas.width / 2, 260, 560, 40);
+    ctx.font = "600 30px Georgia";
+    wrapText(ctx, caseTitle, canvas.width / 2, 240, 560, 38);
 
     ctx.fillStyle = "#7c2632";
-    ctx.font = "600 26px Georgia";
-    ctx.fillText(`${winnerName} wins the case`, canvas.width / 2, 440);
+    ctx.font = "600 24px Georgia";
+    ctx.fillText(`${winnerName} wins the case`, canvas.width / 2, 400);
 
     ctx.fillStyle = "#5a4632";
-    ctx.font = "400 18px Georgia";
-    wrapText(ctx, verdict.line, canvas.width / 2, 480, 520, 26);
+    ctx.font = "400 17px Georgia";
+    wrapText(ctx, verdict.line, canvas.width / 2, 435, 520, 24);
 
+    const margin = Math.abs(Math.round(scores.A) - Math.round(scores.B));
     ctx.fillStyle = "#2e2016";
-    ctx.font = "500 20px monospace";
-    ctx.fillText(`${winnerName}  vs  ${loserName}`, canvas.width / 2, 620);
+    ctx.font = "500 18px monospace";
+    ctx.fillText(`${winnerName}  vs  ${loserName}  ·  won by ${margin} pts`, canvas.width / 2, 520);
+
+    if (highlight) {
+      ctx.fillStyle = "#7c2632";
+      ctx.font = "600 17px Georgia";
+      ctx.fillText("Highlight of the case", canvas.width / 2, 600);
+      ctx.fillStyle = "#5a4632";
+      ctx.font = "italic 15px Georgia";
+      const hlText = `Round ${highlight.round}: ${highlight.presenterName} used ${highlight.argTypeName} — it ${
+        { accepted: "went unchallenged", bluffLanded: "was a bluff that landed", sustained: "was sustained against them",
+          overruled: "survived an objection", caughtFake: "was caught as fake evidence" }[highlight.outcome] || highlight.outcome
+      }.`;
+      wrapText(ctx, hlText, canvas.width / 2, 630, 540, 22);
+    }
 
     ctx.fillStyle = "#7a6a4d";
     ctx.font = "400 15px monospace";
     ctx.fillText(new Date().toLocaleDateString(), canvas.width / 2, canvas.height - 90);
   }
 
-  function triggerReceiptDownload(canvas) {
+  function downloadBadgeCard() {
+    if (!lastUnlockedBadge) return;
+    const canvas = document.getElementById("receipt-canvas");
+    const ctx = canvas.getContext("2d");
+    const badge = lastUnlockedBadge;
+
+    const bg = new Image();
+    bg.onload = () => {
+      ctx.drawImage(bg, 0, 0, canvas.width, canvas.height);
+      drawBadgeText(ctx, canvas, badge);
+      triggerReceiptDownload(canvas, `vakil-adalat-badge-${badge.id}-${Date.now()}.png`);
+    };
+    bg.onerror = () => {
+      ctx.fillStyle = "#2e2016";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "#c9a227";
+      ctx.lineWidth = 6;
+      ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+      drawBadgeText(ctx, canvas, badge);
+      triggerReceiptDownload(canvas, `vakil-adalat-badge-${badge.id}-${Date.now()}.png`);
+    };
+    bg.src = "assets/receipt-border.jpg";
+  }
+
+  function drawBadgeText(ctx, canvas, badge) {
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#7c2632";
+    ctx.font = "600 26px Georgia";
+    ctx.fillText("VAKIL ADALAT", canvas.width / 2, 160);
+    ctx.fillStyle = "#5a4632";
+    ctx.font = "italic 18px Georgia";
+    ctx.fillText("Achievement Unlocked", canvas.width / 2, 195);
+
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, 400, 90, 0, Math.PI * 2);
+    ctx.fillStyle = "#c9a227";
+    ctx.fill();
+    ctx.fillStyle = "#2e2016";
+    ctx.font = "600 60px Georgia";
+    ctx.fillText(badge.name.charAt(0), canvas.width / 2, 422);
+
+    ctx.fillStyle = "#2e2016";
+    ctx.font = "600 32px Georgia";
+    wrapText(ctx, badge.name, canvas.width / 2, 560, 560, 40);
+
+    ctx.fillStyle = "#5a4632";
+    ctx.font = "italic 18px Georgia";
+    wrapText(ctx, badge.desc, canvas.width / 2, 630, 520, 26);
+
+    ctx.fillStyle = "#7c2632";
+    ctx.font = "600 20px monospace";
+    ctx.fillText(badge.owner, canvas.width / 2, 720);
+
+    ctx.fillStyle = "#7a6a4d";
+    ctx.font = "400 15px monospace";
+    ctx.fillText(new Date().toLocaleDateString(), canvas.width / 2, canvas.height - 90);
+  }
+
+  function triggerReceiptDownload(canvas, filename) {
     const link = document.createElement("a");
-    link.download = `vakil-adalat-${Date.now()}.png`;
+    link.download = filename;
     link.href = canvas.toDataURL("image/png");
     link.click();
   }
@@ -869,6 +1072,16 @@
       : "Never been caught faking evidence.";
 
     document.getElementById("stats-appeals").textContent = `Appeals won: ${s.appealsWon || 0} · Appeals lost: ${s.appealsLost || 0}`;
+
+    const badges = p.badges || {};
+    const badgeContainer = document.getElementById("stats-badges");
+    badgeContainer.innerHTML = BADGES.map((b) => {
+      const unlocked = !!badges[b.id];
+      return `<div class="badge-chip ${unlocked ? "unlocked" : "locked"}">
+        <span class="badge-chip-name">${escapeHtml(b.name)}</span>
+        <span class="badge-chip-desc">${unlocked ? "Unlocked" : escapeHtml(b.desc)}</span>
+      </div>`;
+    }).join("");
   }
 
   function escapeHtml(s) {
@@ -877,5 +1090,26 @@
     return d.innerHTML;
   }
 
+  function loadExtraCasesIfConfigured() {
+    if (typeof CASE_GENERATOR_URL === "undefined" || !CASE_GENERATOR_URL) return;
+    if (!SUPABASE_CONFIG.anonKey) return; // needed as an auth header — see config.js
+    fetch(`${CASE_GENERATOR_URL}?count=0`, {
+      headers: {
+        apikey: SUPABASE_CONFIG.anonKey,
+        Authorization: `Bearer ${SUPABASE_CONFIG.anonKey}`,
+      },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && Array.isArray(data.cases)) {
+          window.EXTRA_CASES = data.cases;
+        }
+      })
+      .catch(() => { /* Not deployed yet, or offline — the game just uses the built-in cases. */ });
+  }
+
+  loadExtraCasesIfConfigured();
   show("home");
 })();
+
+

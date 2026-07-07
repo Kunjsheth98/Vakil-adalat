@@ -30,9 +30,10 @@ function shuffle(arr) {
 }
 
 function pickCase(recentIds = []) {
-  const fresh = CASES.filter(c => !recentIds.includes(c.id));
-  const pool = fresh.length ? fresh : CASES;
-  return pool[Math.floor(Math.random() * pool.length)];
+  const pool = [...CASES, ...((typeof window !== "undefined" && window.EXTRA_CASES) || [])];
+  const fresh = pool.filter(c => !recentIds.includes(c.id));
+  const finalPool = fresh.length ? fresh : pool;
+  return finalPool[Math.floor(Math.random() * finalPool.length)];
 }
 
 // Deal each side their 3 private evidence cards, shuffled.

@@ -8,3 +8,9 @@ const SUPABASE_CONFIG = {
 };
 
 const ONLINE_ENABLED = !!(SUPABASE_CONFIG.url && SUPABASE_CONFIG.anonKey);
+
+// Optional: once you deploy supabase/functions/generate-cases (see supabase/README.md),
+// put its URL here to pull live AI-generated cases into rotation automatically.
+// Leave blank and the game just uses the 24 built-in cases — nothing else changes.
+const CASE_GENERATOR_URL = "https://qycghkeymmjxprpnemmn.supabase.co/functions/v1/generate-cases"; // e.g. "https://xxxxxxxx.supabase.co/functions/v1/generate-cases"
+ 

@@ -25,10 +25,11 @@ const MP = (() => {
   function loadLib() {
     return new Promise((resolve, reject) => {
       if (window.supabase) return resolve(window.supabase);
+      const timeoutId = setTimeout(() => reject(new Error("Timed out loading the Supabase library. Check your internet connection.")), 10000);
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js";
-      script.onload = () => resolve(window.supabase);
-      script.onerror = () => reject(new Error("Could not load the Supabase library. Check your internet connection."));
+      script.onload = () => { clearTimeout(timeoutId); resolve(window.supabase); };
+      script.onerror = () => { clearTimeout(timeoutId); reject(new Error("Could not load the Supabase library. Check your internet connection.")); };
       document.head.appendChild(script);
     });
   }
@@ -52,9 +53,29 @@ const MP = (() => {
     channel.on("broadcast", { event: "msg" }, (payload) => {
       emit(payload.payload);
     });
-    return new Promise((resolve) => {
-      channel.subscribe((status) => {
-        if (status === "SUBSCRIBED") resolve();
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error("Connection timed out. Check your internet connection and that Realtime is enabled on your Supabase project."));
+      }, 10000);
+
+      channel.subscribe((status, err) => {
+        if (settled) return;
+        if (status === "SUBSCRIBED") {
+          settled = true;
+          clearTimeout(timeoutId);
+          resolve();
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          settled = true;
+          clearTimeout(timeoutId);
+          reject(new Error(
+            status === "CHANNEL_ERROR"
+              ? "Could not connect to Supabase. Double-check the URL and anon key in js/config.js."
+              : "Connection " + status.toLowerCase().replace("_", " ") + ". Try again."
+          ));
+        }
       });
     });
   }

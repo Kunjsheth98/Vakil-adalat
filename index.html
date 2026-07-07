@@ -7,7 +7,7 @@
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
 
@@ -74,6 +74,7 @@
         <input class="text-input" id="name-b" maxlength="16" placeholder="e.g. Kunj" />
       </div>
       <button class="btn btn-primary" data-action="confirm-names-2">Begin the case</button>
+      <p class="field-error hidden" id="names2-error"></p>
       <button class="btn btn-ghost" data-action="go-mode-select">Back</button>
     </div>
   </section>
@@ -88,7 +89,7 @@
       <input class="text-input party-name-input" maxlength="16" placeholder="Player 3" />
     </div>
     <button class="btn btn-ghost" data-action="party-add-name">+ Add another player</button>
-    <p class="hint hidden" id="party-warning" style="color:#e6c34f">Add at least 3 players.</p>
+    <p class="field-error hidden" id="party-warning">Add at least 3 players.</p>
     <button class="btn btn-primary" data-action="confirm-names-party">Start</button>
     <button class="btn btn-ghost" data-action="go-mode-select">Back</button>
   </section>
@@ -107,6 +108,7 @@
       <label class="field-label">Room code</label>
       <input class="text-input" id="online-code" maxlength="6" placeholder="e.g. A3F9K1" style="text-transform:uppercase" />
       <button class="btn btn-secondary" data-action="online-join">Join room</button>
+      <p class="field-error hidden" id="online-error"></p>
     </div>
     <div id="online-waiting" class="stack narrow hidden">
       <p class="hint">Share this code:</p>
@@ -228,6 +230,19 @@
       <div><span id="verdict-name-b"></span><strong id="verdict-score-b"></strong></div>
     </div>
     <p class="verdict-points" id="verdict-points"></p>
+
+    <div class="achievement-banner hidden" id="achievement-banner">
+      <span class="achievement-eyebrow">Achievement Unlocked — <span id="achievement-owner"></span></span>
+      <p class="achievement-name" id="achievement-name"></p>
+      <p class="achievement-desc" id="achievement-desc"></p>
+      <button class="btn btn-secondary" data-action="download-badge">Download badge card</button>
+    </div>
+
+    <div class="verdict-recap-block">
+      <p class="stats-block-title">How the case went</p>
+      <div id="verdict-recap"></div>
+    </div>
+
     <div class="stack narrow" id="appeal-section">
       <button class="btn btn-secondary" data-action="start-appeal" id="btn-appeal">Appeal this verdict (15 pts)</button>
       <p class="hint" id="appeal-cost-note"></p>
@@ -266,16 +281,20 @@
       <p class="stats-block-title">Appeals</p>
       <p class="hint" id="stats-appeals"></p>
     </div>
+    <div class="stats-block">
+      <p class="stats-block-title">Badges</p>
+      <div id="stats-badges" class="badges-grid"></div>
+    </div>
     <button class="btn btn-ghost" data-action="go-profiles">Back</button>
   </section>
 
 </div>
 
-<script src="js/data.js"></script>
-<script src="js/engine.js"></script>
-<script src="js/state.js"></script>
-<script src="js/config.js"></script>
-<script src="js/multiplayer.js"></script>
-<script src="js/app.js"></script>
+<script src="js/data.js?v=4"></script>
+<script src="js/engine.js?v=4"></script>
+<script src="js/state.js?v=4"></script>
+<script src="js/config.js?v=4"></script>
+<script src="js/multiplayer.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
 </body>
 </html>

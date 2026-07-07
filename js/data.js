@@ -481,7 +481,21 @@ function pickJudge() {
   return JUDGES[Math.floor(Math.random() * JUDGES.length)];
 }
 
-if (typeof module !== "undefined") {
-  module.exports = { EVIDENCE_TYPES, ARGUMENT_TYPES, JUDGE_LINES, CASES, JUDGES, pickJudge };
-}
+// ---------- BADGES ----------
+// Checked against a player's saved profile after every match. `check` reads only
+// fields already tracked in profile.stats — see state.js for where each is updated.
+const BADGES = [
+  { id: "first_verdict", name: "First Verdict", desc: "Win your first case.", check: (p) => p.wins >= 1 },
+  { id: "on_a_roll", name: "On a Roll", desc: "Win 3 cases in a row.", check: (p) => p.bestStreak >= 3 },
+  { id: "courtroom_veteran", name: "Courtroom Veteran", desc: "Win 10 cases.", check: (p) => p.wins >= 10 },
+  { id: "silver_tongued", name: "Silver-Tongued", desc: "Land 5 successful bluffs.", check: (p) => (p.stats.bluffSuccess || 0) >= 5 },
+  { id: "nerves_of_steel", name: "Nerves of Steel", desc: "Win an appeal.", check: (p) => (p.stats.appealsWon || 0) >= 1 },
+  { id: "senior_advocate", name: "Senior Advocate", desc: "Reach 100 rank points.", check: (p) => p.points >= 100 },
+  { id: "supreme_advocate", name: "Supreme Court Advocate", desc: "Reach 250 rank points.", check: (p) => p.points >= 250 },
+  { id: "sharp_cross_examiner", name: "Sharp Cross-Examiner", desc: "Use Cross-Examine 5 times.", check: (p) => (p.stats.crossExaminesUsed || 0) >= 5 },
+  { id: "giant_slayer", name: "Giant Slayer", desc: "Beat someone ranked 50+ points above you.", check: (p) => (p.stats.giantSlayerCount || 0) >= 1 },
+];
 
+if (typeof module !== "undefined") {
+  module.exports = { EVIDENCE_TYPES, ARGUMENT_TYPES, JUDGE_LINES, CASES, JUDGES, pickJudge, BADGES };
+}
